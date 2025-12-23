@@ -14,7 +14,7 @@ zoom = 2
 
 import tkinter as tk
 from player import player
-from tableau import tb1
+from tableau import tb1, tb2
 
 
 ###################
@@ -42,6 +42,10 @@ zone.place(x = 10*zoom, y = 10*zoom)
 ##### Ce sont des tableaux de 32x18                  ##### 
 ##########################################################
 
+# le tableau actif
+
+tableau = tb2
+
 # ce sont des carrés de 35x35
 def constructeur(tbl) :
     for hauteur in range (18) :
@@ -49,14 +53,14 @@ def constructeur(tbl) :
             if tbl[hauteur][largeur] == 1 :
                 zone.create_rectangle(35*largeur*zoom, 35*hauteur*zoom, 35*zoom + 35*largeur*zoom, 35*zoom + 35*hauteur*zoom, fill = "black", outline = "yellow")
 
-constructeur(tb1)
+constructeur(tableau)
 
 ###################
 ##### Touches #####
 ###################
 
 # C'est beaucoup plus fluide avec un dico
-# Et je préfère ZQSD, si vous préférez avec des flèches mettez les variables ene commentaire et retirer les """ sur l'autre
+# Et je préfère ZQSD, si vous préférez avec des flèches mettez les variables en commentaire et retirer les """ sur l'autre
 # Et faudra faire pareil avec les fonctions qui suivent
 
 touche_haut = "z"
@@ -114,34 +118,78 @@ player(x, y, zone, zoom) # et le faire apparaître c'est pas mal aussi
 ##### Déplacement #####
 #######################
 
+# faut tomber quand on arrive sur le bord
+
+v_y = 0 # c'est la vitesse de chute, quand on marche on tombe pas
+g = 1200*zoom # on garde pas la même gravité que pour le saut il tombe trop vite
+chute_yn = False
+
+def chute() :
+    global v_y, g, y, chute_yn
+    dt = 0.016
+
+    v_y += g * dt # la vitesse augmente en fonction du temps et de la gravité
+    y += v_y * dt # moifie la position du personnage
+
+    zone.move("player", 0, v_y * dt)
+
+    coord_x = int(x // (35*zoom))
+    coord_y = int((y + 75*zoom) // (35*zoom))
+    if tableau[coord_y][coord_x] == 1 :
+
+        delta_sol = coord_y*35*zoom - (y + 75*zoom)
+        zone.move("player", 0, delta_sol)
+        y += delta_sol
+        chute_yn = False
+        v_y = 0
+
+        return
+
+    root.after(16, chute)
+
+
+
 def gauche() :
-    global x, y
-    x = int(x)
-    y = int(y)
-    coord_x = x // (35*zoom)
-    coord_y = (y + 5*zoom) // (35*zoom)
+    global x, y, chute_yn, saut_en_cours
+    tmp_x = int(x)
+    tmp_y = int(y)
+    coord_x = (tmp_x - 5) // (35*zoom)
+    coord_y = (tmp_y + 5*zoom) // (35*zoom)
     if x >= 5*zoom :
-        if tb1[coord_y][coord_x] != 1 and tb1[coord_y + 1][coord_x] != 1 :
+        if tableau[coord_y][coord_x] != 1 and tableau[coord_y + 1][coord_x] != 1 :
             zone.move("player", -5*zoom, 0)
             x -= 5*zoom
+    
+        chute_x = int((x + 50*zoom) // (35*zoom))
+        chute_y = int((y + 75*zoom) // (35*zoom))
+
+        if tableau[chute_y][chute_x] != 1 and not chute_yn and not saut_en_cours:
+            chute_yn = True
+            chute()
 
 def droite() :
-    global x, y
-    x = int(x)
-    y = int(y)
-    coord_x = (x + 50*zoom) // (35*zoom)
-    coord_y = (y + 5*zoom) // (35*zoom)
+    global x, y, chute_yn, saut_en_cours
+    tmp_x = int(x)
+    tmp_y = int(y)
+    coord_x = (tmp_x + 50*zoom) // (35*zoom)
+    coord_y = (tmp_y + 5*zoom) // (35*zoom)
     if x + 50*zoom <= 1115*zoom :
-        if tb1[coord_y][coord_x] != 1 and tb1[coord_y + 1][coord_x] != 1 :
+        if tableau[coord_y][coord_x] != 1 and tableau[coord_y + 1][coord_x] != 1 :
             zone.move("player", 5*zoom, 0)
             x += 5*zoom
+        
+        chute_x = int(x // (35*zoom))
+        chute_y = int((y + 75*zoom) // (35*zoom))
+
+        if tableau[chute_y][chute_x] != 1 and not chute_yn and not saut_en_cours:
+            chute_yn = True
+            chute()
 
 # pour le saut
 
 # flag pour éviter qu'un couillon spam le saut
 saut_en_cours = False
 t = 0 # ça gère la hauteur en fonction du temps
-
 
 # on gère le saut avec une équation parabolique
 
@@ -163,27 +211,47 @@ def saut():
     t = 0
 
     y_initiale = y
-    acceleration = 600 * zoom
-    vitesse_initiale = 600 * zoom
+    acceleration = 450 * zoom
+    vitesse_initiale = 300 * zoom
+
+    # pour le boost de saut
+
+    tmp_max = 0.3 # en seconde
+    boost_px = 5*zoom # boost en pixel
+    compteur_boost = 0
+    boost_finie = False
 
     def saut_update():
-        global t, y, saut_en_cours
-        nonlocal y_initiale, acceleration, vitesse_initiale
+        global t, x, y, saut_en_cours
+        nonlocal y_initiale, acceleration, vitesse_initiale, tmp_max, boost_px, compteur_boost, boost_finie
 
         dt = 16 * 0.001
-
+        
         y_old = parabole(acceleration, vitesse_initiale, y_initiale, t)
         y_new = parabole(acceleration, vitesse_initiale, y_initiale, t + dt)
         delta_y = y_new - y_old
 
+        if not keys["space"] :
+            boost_finie = True
+        
+        if keys["space"] and compteur_boost < tmp_max and not boost_finie :
+            delta_y -= boost_px
+            compteur_boost += 16*0.001
+
         zone.move("player", 0, delta_y)
-        y = y_new
+        y += delta_y
         t += dt
 
-        if y >= y_initiale:
-            zone.move("player", 0, y_initiale - y)
-            y = y_initiale
+        coord_x = int(x // (35*zoom))
+        coord_y = int((y + 75*zoom) // (35*zoom))
+        if tableau[coord_y][coord_x] == 1 :
+
+            delta_sol = coord_y*35*zoom - (y + 75*zoom)
+            zone.move("player", 0, delta_sol)
+            y += delta_sol
+
             saut_en_cours = False
+            boost_finie = False
             return
 
         root.after(16, saut_update)
@@ -207,8 +275,6 @@ def update() :
 
 
     root.after(16, update)
-
-
 
 update()
 root.mainloop()
