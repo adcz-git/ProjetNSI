@@ -112,7 +112,7 @@ def maison1(x,y,canva):
     #briques haut gauche
     br1=canva.create_rectangle(x+30,y+40,x+40,y+45,outline="#FFFFFF")
     br2=canva.create_rectangle(x+35,y+35,x+45,y+40,outline="#FFFFFF")
-    br3=canva.create_rectangle(x+45,y+40,x+55,y+45,outline="#FFFFFF")
+    br3=canva.create_rectangle(x+40,y+40,x+50,y+45,outline="#FFFFFF")
     br4=canva.create_rectangle(x+35,y+45,x+45,y+50,outline="#FFFFFF")
     #briques haut droite
     br5=canva.create_rectangle(x+75,y+40,x+90,y+45,outline="#FFFFFF")
