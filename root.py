@@ -14,7 +14,8 @@ zoom = 2
 
 import tkinter as tk
 from player import player
-from tableau import tb1, tb2
+from tableau import tb1, tb2, tb3
+from plateforemes import *
 
 
 ###################
@@ -44,7 +45,7 @@ zone.place(x = 10*zoom, y = 10*zoom)
 
 # le tableau actif
 
-tableau = tb2
+tableau = tb3
 
 # ce sont des carrés de 35x35
 def constructeur(tbl) :
@@ -54,6 +55,8 @@ def constructeur(tbl) :
                 zone.create_rectangle(35*largeur*zoom, 35*hauteur*zoom, 35*zoom + 35*largeur*zoom, 35*zoom + 35*hauteur*zoom, fill = "black", outline = "yellow")
 
 constructeur(tableau)
+
+
 
 ###################
 ##### Touches #####
@@ -121,31 +124,64 @@ player(x, y, zone, zoom) # et le faire apparaître c'est pas mal aussi
 # faut tomber quand on arrive sur le bord
 
 v_y = 0 # c'est la vitesse de chute, quand on marche on tombe pas
-g = 1200*zoom # on garde pas la même gravité que pour le saut il tombe trop vite
+g = 1200*zoom # la gravité on peut modifier la valeur pour sauter plus ou moins haut
 chute_yn = False
 
-def chute() :
-    global v_y, g, y, chute_yn
+def physique_verticale():
+    global v_y, y, saut_en_cours, chute_yn
+
     dt = 0.016
 
-    v_y += g * dt # la vitesse augmente en fonction du temps et de la gravité
-    y += v_y * dt # moifie la position du personnage
+    # gravité
+    v_y += g * dt
+    delta_y = v_y * dt
 
-    zone.move("player", 0, v_y * dt)
+    # saut court si on relâche la touche
+    if not keys["space"] and v_y < 0:
+        v_y *= 0.5
 
-    coord_x = int(x // (35*zoom))
-    coord_y = int((y + 75*zoom) // (35*zoom))
-    if tableau[coord_y][coord_x] == 1 :
 
-        delta_sol = coord_y*35*zoom - (y + 75*zoom)
+    # ===== COLLISION PLAFOND =====
+    coord_y_haut = int(y // (35*zoom))
+    coord_x = int((x + 25*zoom) // (35*zoom))
+    coord_x1 = int(x // (35*zoom))
+    coord_x2 = int((x + 50*zoom) // (35*zoom))
+    if coord_x2 == 32 :
+        coord_x2 -= 1
+    
+    co_x = [coord_x1, coord_x, coord_x2]
+    flag = False
+    for i in co_x :
+        if tableau[coord_y_haut][i] == 1 :
+            flag = True
+
+    if delta_y < 0 and flag :
+        v_y = 0
+        delta_y = 0
+
+    # déplacement
+    zone.move("player", 0, delta_y)
+    y += delta_y
+
+    # ===== COLLISION SOL =====
+    coord_x1 = int(x // (35*zoom))
+    coord_x2 = int((x + 50*zoom) // (35*zoom))
+    if (x + 50*zoom) % (35*zoom) == 0:
+        coord_x2 -= 1
+
+    coord_y_sol = int((y + 75*zoom) // (35*zoom))
+    flag2 = False
+    for i in range(coord_x1, coord_x2 + 1):
+        if tableau[coord_y_sol][i] == 1 :
+            flag2 = True
+        
+    if flag2 and v_y > 0:
+        delta_sol = coord_y_sol*35*zoom - (y + 75*zoom)
         zone.move("player", 0, delta_sol)
         y += delta_sol
-        chute_yn = False
         v_y = 0
-
-        return
-
-    root.after(16, chute)
+        saut_en_cours = False
+        chute_yn = False
 
 
 
@@ -159,13 +195,6 @@ def gauche() :
         if tableau[coord_y][coord_x] != 1 and tableau[coord_y + 1][coord_x] != 1 :
             zone.move("player", -5*zoom, 0)
             x -= 5*zoom
-    
-        chute_x = int((x + 50*zoom) // (35*zoom))
-        chute_y = int((y + 75*zoom) // (35*zoom))
-
-        if tableau[chute_y][chute_x] != 1 and not chute_yn and not saut_en_cours:
-            chute_yn = True
-            chute()
 
 def droite() :
     global x, y, chute_yn, saut_en_cours
@@ -177,87 +206,22 @@ def droite() :
         if tableau[coord_y][coord_x] != 1 and tableau[coord_y + 1][coord_x] != 1 :
             zone.move("player", 5*zoom, 0)
             x += 5*zoom
-        
-        chute_x = int(x // (35*zoom))
-        chute_y = int((y + 75*zoom) // (35*zoom))
 
-        if tableau[chute_y][chute_x] != 1 and not chute_yn and not saut_en_cours:
-            chute_yn = True
-            chute()
+
 
 # pour le saut
 
 # flag pour éviter qu'un couillon spam le saut
 saut_en_cours = False
-t = 0 # ça gère la hauteur en fonction du temps
-
-# on gère le saut avec une équation parabolique
-
-def parabole(acc, v_init, y_init, t) :
-    return (acc * t * t) - (v_init * t) + y_init
-    # acc : accélération
-    # v_init : vitesse initiale
-    # y_init : hauteur initiale du perso
-    # t : duré
-
 
 def saut():
-    global saut_en_cours, y, t
+    global v_y, saut_en_cours
 
     if saut_en_cours:
         return
 
     saut_en_cours = True
-    t = 0
-
-    y_initiale = y
-    acceleration = 450 * zoom
-    vitesse_initiale = 300 * zoom
-
-    # pour le boost de saut
-
-    tmp_max = 0.3 # en seconde
-    boost_px = 5*zoom # boost en pixel
-    compteur_boost = 0
-    boost_finie = False
-
-    def saut_update():
-        global t, x, y, saut_en_cours
-        nonlocal y_initiale, acceleration, vitesse_initiale, tmp_max, boost_px, compteur_boost, boost_finie
-
-        dt = 16 * 0.001
-        
-        y_old = parabole(acceleration, vitesse_initiale, y_initiale, t)
-        y_new = parabole(acceleration, vitesse_initiale, y_initiale, t + dt)
-        delta_y = y_new - y_old
-
-        if not keys["space"] :
-            boost_finie = True
-        
-        if keys["space"] and compteur_boost < tmp_max and not boost_finie :
-            delta_y -= boost_px
-            compteur_boost += 16*0.001
-
-        zone.move("player", 0, delta_y)
-        y += delta_y
-        t += dt
-
-        coord_x = int(x // (35*zoom))
-        coord_y = int((y + 75*zoom) // (35*zoom))
-        if tableau[coord_y][coord_x] == 1 :
-
-            delta_sol = coord_y*35*zoom - (y + 75*zoom)
-            zone.move("player", 0, delta_sol)
-            y += delta_sol
-
-            saut_en_cours = False
-            boost_finie = False
-            return
-
-        root.after(16, saut_update)
-
-    saut_update()
-
+    v_y = -600 * zoom  # impulsion vers le haut
 
 
 
@@ -272,6 +236,8 @@ def update() :
         droite()
     if keys["space"] :
         saut()
+    
+    physique_verticale()
 
 
     root.after(16, update)
