@@ -13,8 +13,9 @@ zoom = 2
 #################################
 
 import tkinter as tk
+from time import *
 from player import player
-from tableau import tb1, tb2, tb3
+from tableau import lst_tableau, tb0, tb1, tb2
 from plateforemes import *
 
 
@@ -34,7 +35,7 @@ root.geometry(f"{int(1140*zoom)}x{int(650*zoom)}")
 larg_canva = 1120*zoom
 haut_canva = 630*zoom
 
-zone = tk.Canvas (root, width = larg_canva, height = haut_canva, bg = "Grey")
+zone = tk.Canvas (root, width = larg_canva, height = haut_canva, bg = "#000000")
 zone.place(x = 10*zoom, y = 10*zoom)
 
 
@@ -45,14 +46,14 @@ zone.place(x = 10*zoom, y = 10*zoom)
 
 # le tableau actif
 
-tableau = tb3
+tableau = tb0
 
 # ce sont des carrés de 35x35
 def constructeur(tbl) :
     for hauteur in range (18) :
         for largeur in range (32) :
             if tbl[hauteur][largeur] == 1 :
-                zone.create_rectangle(35*largeur*zoom, 35*hauteur*zoom, 35*zoom + 35*largeur*zoom, 35*zoom + 35*hauteur*zoom, fill = "black", outline = "yellow")
+                zone.create_rectangle(35*largeur*zoom, 35*hauteur*zoom, 35*zoom + 35*largeur*zoom, 35*zoom + 35*hauteur*zoom, outline = "yellow")
 
 constructeur(tableau)
 
@@ -109,7 +110,7 @@ root.bind("<KeyRelease>", key_release)
 ##### Personnage #####
 ######################
 
-# On y stock les positions du player :
+# On y stock les positions du personnages :
 x = 800*zoom
 y = 450*zoom
 
@@ -121,10 +122,11 @@ player(x, y, zone, zoom) # et le faire apparaître c'est pas mal aussi
 ##### Déplacement #####
 #######################
 
-# faut tomber quand on arrive sur le bord
+# la fonction gère tout ce qui est lié à la physique, en gros si le petit bonhomme doit tomber ou pas
 
 v_y = 0 # c'est la vitesse de chute, quand on marche on tombe pas
 g = 1200*zoom # la gravité on peut modifier la valeur pour sauter plus ou moins haut
+
 chute_yn = False
 
 def physique_verticale():
@@ -133,7 +135,7 @@ def physique_verticale():
     dt = 0.016
 
     # gravité
-    v_y += g * dt
+    v_y += g * dt 
     delta_y = v_y * dt
 
     # saut court si on relâche la touche
@@ -146,22 +148,24 @@ def physique_verticale():
     coord_x = int((x + 25*zoom) // (35*zoom))
     coord_x1 = int(x // (35*zoom))
     coord_x2 = int((x + 50*zoom) // (35*zoom))
-    if coord_x2 == 32 :
+    if int((x + 50*zoom) % (35*zoom)) == 0 :
         coord_x2 -= 1
     
     co_x = [coord_x1, coord_x, coord_x2]
     flag = False
     for i in co_x :
         if tableau[coord_y_haut][i] == 1 :
-            flag = True
+            flag = True # quand le flag est sur True ça signifie qu'il y a un bloc au dessus de la tête du perso, donc il ne saute pas plus haut
 
-    if delta_y < 0 and flag :
-        v_y = 0
+    if delta_y < 0 and flag : # la condition delta_y < 0 signifie que le perso est en train de monter
+        v_y = 0 # dans le cas où le perso monte et qu'il y a un plafond au dessus, on met fin à la monté
         delta_y = 0
+
 
     # déplacement
     zone.move("player", 0, delta_y)
     y += delta_y
+
 
     # ===== COLLISION SOL =====
     coord_x1 = int(x // (35*zoom))
@@ -224,6 +228,75 @@ def saut():
     v_y = -600 * zoom  # impulsion vers le haut
 
 
+#################################
+##### Changement de tableau #####
+#################################
+
+# Il y a plusieurs fonction qu'on intègrera dans la plus grande, pour que ce soit plus lisible
+
+def nouv_coord_y (sens) :
+    global tableau
+
+    if sens == "g" :
+        coor_x = 30
+    else :
+        coor_x = 1
+
+    sol = False
+    coor_y = 17
+    while not sol :
+        if tableau[coor_y][coor_x] == 0 :
+            sol = True
+        else :
+            coor_y -= 1
+
+    return coor_y
+
+
+def nouv_tableau (sens) :
+    i = lst_tableau.index(tableau)
+    if sens == "g" :
+        return lst_tableau[i + 1]
+    else :
+        return lst_tableau[i - 1]
+    
+
+
+
+def chang_environnement () :
+    global x, y, tableau, bonhomme
+
+    coord_y = int(y // (35*zoom))
+    coord_x = x // (35*zoom)
+    coord_x2 = (x + 50*zoom) // (35*zoom)
+    if (x + 50*zoom) % (35*zoom) == 0 :
+        coord_x2 -= 1
+
+    if tableau[coord_y][coord_x] == 2 and x % (35*zoom) == 0 and keys[touche_gauche] :
+        x = 1050*zoom
+        y = 35*zoom*nouv_coord_y("g") - 75
+
+        tableau = nouv_tableau("g")
+        rideau = zone.create_rectangle(0, 0, 1120*zoom, 630*zoom, fill = "#000000")
+        zone.delete("player")
+        constructeur(tableau)
+
+        player(x, y, zone, zoom)
+
+    if tableau[coord_y][coord_x2] == 2 and (x + 50*zoom) % (35*zoom) == 0 and keys[touche_droite] :
+        x = 35*zoom
+        y = 35*zoom*nouv_coord_y("d") - 75
+
+        tableau = nouv_tableau("d")
+        rideau = zone.create_rectangle(0, 0, 1120*zoom, 630*zoom, fill = "#000000")
+        zone.delete("player")
+        constructeur(tableau)
+
+        player(x, y, zone, zoom)
+        
+            
+
+
 
 ###########################################################################
 ## Update (c'est vraiment ce qui fait tourner le jeu faut pas le casser) ##
@@ -239,8 +312,13 @@ def update() :
     
     physique_verticale()
 
+    chang_environnement()
+
 
     root.after(16, update)
 
 update()
+
+
+
 root.mainloop()
