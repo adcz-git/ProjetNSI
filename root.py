@@ -273,10 +273,11 @@ def chang_environnement () :
         coord_x2 -= 1
 
     if tableau[coord_y][coord_x] == 2 and x % (35*zoom) == 0 and keys[touche_gauche] :
+        tableau = nouv_tableau("g")
+        
         x = 1050*zoom
         y = 35*zoom*nouv_coord_y("g") - 75
 
-        tableau = nouv_tableau("g")
         rideau = zone.create_rectangle(0, 0, 1120*zoom, 630*zoom, fill = "#000000")
         zone.delete("player")
         constructeur(tableau)
@@ -284,10 +285,11 @@ def chang_environnement () :
         player(x, y, zone, zoom)
 
     if tableau[coord_y][coord_x2] == 2 and (x + 50*zoom) % (35*zoom) == 0 and keys[touche_droite] :
+        tableau = nouv_tableau("d")
+        
         x = 35*zoom
         y = 35*zoom*nouv_coord_y("d") - 75
 
-        tableau = nouv_tableau("d")
         rideau = zone.create_rectangle(0, 0, 1120*zoom, 630*zoom, fill = "#000000")
         zone.delete("player")
         constructeur(tableau)
