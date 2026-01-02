@@ -26,7 +26,7 @@ def max(a,b):
 
 hauteur = int(input("largeur du pixel art"))
 longueur = int(input ("longueur du pixel art"))
-echelle = int(input("echelle du pixel art(si il y a un problème dans les contours, mettez 2)"))
+echelle = int(input("echelle du pixel art(si il y a un problème dans les contours, mettez 2)(combien de pixels affichés par la fonction pour chaque pixel de l'interface"))
 
 
 fen = Tk()
